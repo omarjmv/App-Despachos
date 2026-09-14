@@ -12,11 +12,17 @@ class UserController extends Controller
 {
     public function index(Request $request)
     {
-        $this->authorize('manage', User::class);
+        // Lectura amplia: un supervisor necesita ver preparadores/motoristas
+        // para asignar pedidos y despachos, aunque no pueda administrarlos.
+        $this->authorize('viewAny', User::class);
 
-        return UserResource::collection(
-            User::query()->with('role')->orderBy('name')->paginate(20)
-        );
+        $query = User::query()->with('role')->orderBy('name');
+
+        if ($request->filled('role')) {
+            $query->whereHas('role', fn ($q) => $q->where('name', $request->string('role')));
+        }
+
+        return UserResource::collection($query->paginate(20));
     }
 
     public function store(StoreUserRequest $request)
