@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CompanyController;
 use App\Http\Controllers\Api\V1\CustomerController;
 use App\Http\Controllers\Api\V1\DashboardController;
+use App\Http\Controllers\Api\V1\DeliveryController;
 use App\Http\Controllers\Api\V1\DispatchController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\PreparationController;
@@ -13,6 +14,7 @@ use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\ReportController;
 use App\Http\Controllers\Api\V1\ReviewController;
 use App\Http\Controllers\Api\V1\RoleController;
+use App\Http\Controllers\Api\V1\RouteController;
 use App\Http\Controllers\Api\V1\UserController;
 use App\Http\Controllers\Api\V1\VehicleController;
 use Illuminate\Support\Facades\Route;
@@ -67,5 +69,18 @@ Route::prefix('v1')->group(function () {
         Route::get('reports/products', [ReportController::class, 'products']);
 
         Route::get('audit-logs', [AuditLogController::class, 'index']);
+
+        // Fase 2: rutas
+        Route::get('routes/mine', [RouteController::class, 'mine']);
+        Route::apiResource('routes', RouteController::class)->only(['index', 'store', 'show']);
+        Route::put('routes/{route}/reorder', [RouteController::class, 'reorder']);
+        Route::post('routes/{route}/start', [RouteController::class, 'start']);
+        Route::post('routes/{route}/finish', [RouteController::class, 'finish']);
+
+        // Fase 2: entregas
+        Route::post('route-stops/{stop}/start', [DeliveryController::class, 'start']);
+        Route::post('route-stops/{stop}/deliveries', [DeliveryController::class, 'store']);
+        Route::post('deliveries/{delivery}/evidence', [DeliveryController::class, 'addEvidence']);
+        Route::get('evidence/{evidence}', [DeliveryController::class, 'showEvidence'])->name('evidence.show');
     });
 });

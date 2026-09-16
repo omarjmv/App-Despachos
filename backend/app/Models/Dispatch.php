@@ -48,4 +48,9 @@ class Dispatch extends Model
     {
         return $this->hasMany(DispatchItem::class);
     }
+
+    public function routeStop()
+    {
+        return $this->hasOne(RouteStop::class);
+    }
 }

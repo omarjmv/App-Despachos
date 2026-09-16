@@ -18,7 +18,12 @@ class DispatchController extends Controller
     {
         $this->authorize('viewAny', Dispatch::class);
 
-        $query = Dispatch::query()->with(['order.customer', 'vehicle', 'driver'])->latest();
+        $query = Dispatch::query()->with(['order.customer', 'vehicle', 'driver', 'items.preparationItem.orderItem.product'])->latest();
+
+        // Despachos que aún no se agregaron a ninguna ruta (para armar una nueva).
+        if ($request->boolean('unrouted')) {
+            $query->whereDoesntHave('routeStop');
+        }
 
         if ($request->filled('customer_id')) {
             $query->whereHas('order', fn ($q) => $q->where('customer_id', $request->integer('customer_id')));

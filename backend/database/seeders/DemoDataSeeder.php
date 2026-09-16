@@ -6,6 +6,8 @@ use App\Enums\DifferenceReason;
 use App\Enums\OrderStatus;
 use App\Enums\PreparationStatus;
 use App\Enums\ReviewResult;
+use App\Enums\RouteStatus;
+use App\Enums\RouteStopStatus;
 use App\Models\Company;
 use App\Models\Customer;
 use App\Models\Dispatch;
@@ -14,10 +16,13 @@ use App\Models\Preparation;
 use App\Models\Product;
 use App\Models\Review;
 use App\Models\Role;
+use App\Models\RouteModel;
 use App\Models\User;
 use App\Models\Vehicle;
+use App\Services\DeliveryService;
 use App\Support\SequenceGenerator;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Str;
 
 /**
  * Datos ficticios para poder demostrar el sistema (sección 26 del brief).
@@ -110,34 +115,131 @@ class DemoDataSeeder extends Seeder
             'reviewed_at' => now(),
         ]);
 
-        // Pedido DESPACHADO: recorrido completo hasta despacho (entrega llega en Fase 2).
+        // Pedido DESPACHADO: recorrido completo hasta despacho, aún sin ruta.
         $order5 = $this->makeOrder($company, $customers['Colonial 1'], $users[Role::ADMINISTRADOR], OrderStatus::DESPACHADO, [
             [$products['AGU-1L'], 90], [$products['AGU-5L'], 20],
         ], assignedTo: $users[Role::PREPARADOR]);
         $prep5 = $this->preparar($order5, $users[Role::PREPARADOR], [90, 20], [null, null]);
-        $review5 = Review::query()->create([
+        $this->despachar($company, $order5, $prep5, $users, $vehicle);
+
+        // Fase 2: tres pedidos despachados que se agrupan en una ruta con
+        // entrega COMPLETA, PARCIAL y RECHAZADA (sección 26 del brief).
+        $orderCompleta = $this->makeOrder($company, $customers['Comercial ABC'], $users[Role::ADMINISTRADOR], OrderStatus::DESPACHADO, [
+            [$products['AGU-500'], 40],
+        ], assignedTo: $users[Role::PREPARADOR]);
+        $prepCompleta = $this->preparar($orderCompleta, $users[Role::PREPARADOR], [40], [null]);
+        $dispatchCompleta = $this->despachar($company, $orderCompleta, $prepCompleta, $users, $vehicle);
+
+        $orderParcial = $this->makeOrder($company, $customers['Distribuidora XYZ'], $users[Role::ADMINISTRADOR], OrderStatus::DESPACHADO, [
+            [$products['AGU-1L'], 30],
+        ], assignedTo: $users[Role::PREPARADOR]);
+        $prepParcial = $this->preparar($orderParcial, $users[Role::PREPARADOR], [30], [null]);
+        $dispatchParcial = $this->despachar($company, $orderParcial, $prepParcial, $users, $vehicle);
+
+        $orderRechazada = $this->makeOrder($company, $customers['Supermercado Central'], $users[Role::ADMINISTRADOR], OrderStatus::DESPACHADO, [
+            [$products['AGU-5L'], 15],
+        ], assignedTo: $users[Role::PREPARADOR]);
+        $prepRechazada = $this->preparar($orderRechazada, $users[Role::PREPARADOR], [15], [null]);
+        $dispatchRechazada = $this->despachar($company, $orderRechazada, $prepRechazada, $users, $vehicle);
+
+        $route = RouteModel::query()->create([
             'company_id' => $company->id,
-            'preparation_id' => $prep5->id,
+            'code' => SequenceGenerator::next('routes', 'code', $company->id, 'RUTA'),
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $users[Role::MOTORISTA]->id,
+            'status' => RouteStatus::EN_CURSO,
+            'started_at' => now()->subHour(),
+        ]);
+
+        $stops = collect([$dispatchCompleta, $dispatchParcial, $dispatchRechazada])
+            ->values()
+            ->map(fn (Dispatch $dispatch, int $i) => $route->stops()->create([
+                'dispatch_id' => $dispatch->id,
+                'sequence' => $i + 1,
+                'status' => RouteStopStatus::PENDIENTE,
+            ]));
+
+        $deliveryService = app(DeliveryService::class);
+
+        // Entrega COMPLETA: se entrega exactamente lo despachado.
+        $stopCompleta = $stops[0];
+        $deliveryService->createOrGet(
+            $stopCompleta->fresh(),
+            $users[Role::MOTORISTA],
+            (string) Str::uuid(),
+            $dispatchCompleta->items->map(fn ($item) => [
+                'dispatch_item_id' => $item->id,
+                'quantity_delivered' => (float) $item->quantity_dispatched,
+            ])->all(),
+            null,
+            14.0723,
+            -87.1921,
+        );
+
+        // Entrega PARCIAL: el cliente rechaza parte por producto dañado.
+        $stopParcial = $stops[1];
+        $deliveryService->createOrGet(
+            $stopParcial->fresh(),
+            $users[Role::MOTORISTA],
+            (string) Str::uuid(),
+            $dispatchParcial->items->map(fn ($item) => [
+                'dispatch_item_id' => $item->id,
+                'quantity_delivered' => max(0, (float) $item->quantity_dispatched - 5),
+                'quantity_rejected' => 5,
+                'rejection_reason' => 'Producto dañado en tránsito',
+            ])->all(),
+            'Cliente rechazó 5 unidades por daño en el empaque.',
+            14.0801,
+            -87.2050,
+        );
+
+        // Entrega RECHAZADA: el cliente no recibe nada.
+        $stopRechazada = $stops[2];
+        $deliveryService->createOrGet(
+            $stopRechazada->fresh(),
+            $users[Role::MOTORISTA],
+            (string) Str::uuid(),
+            $dispatchRechazada->items->map(fn ($item) => [
+                'dispatch_item_id' => $item->id,
+                'quantity_delivered' => 0,
+                'quantity_rejected' => (float) $item->quantity_dispatched,
+                'rejection_reason' => 'Cliente cerrado, no recibió el pedido',
+            ])->all(),
+            'Local cerrado al momento de la entrega.',
+            14.0654,
+            -87.1815,
+        );
+    }
+
+    private function despachar(Company $company, Order $order, Preparation $preparation, array $users, Vehicle $vehicle): Dispatch
+    {
+        $review = Review::query()->create([
+            'company_id' => $company->id,
+            'preparation_id' => $preparation->id,
             'reviewed_by' => $users[Role::REVISOR]->id,
             'result' => ReviewResult::APROBADO,
             'reviewed_at' => now(),
         ]);
+
         $dispatch = Dispatch::query()->create([
             'company_id' => $company->id,
             'number' => SequenceGenerator::next('dispatches', 'number', $company->id, 'DES'),
-            'order_id' => $order5->id,
-            'review_id' => $review5->id,
+            'order_id' => $order->id,
+            'review_id' => $review->id,
             'vehicle_id' => $vehicle->id,
             'driver_id' => $users[Role::MOTORISTA]->id,
             'dispatched_by' => $users[Role::SUPERVISOR]->id,
             'dispatched_at' => now(),
         ]);
-        foreach ($prep5->items as $item) {
+
+        foreach ($preparation->items as $item) {
             $dispatch->items()->create([
                 'preparation_item_id' => $item->id,
                 'quantity_dispatched' => $item->quantity_prepared,
             ]);
         }
+
+        return $dispatch->load('items');
     }
 
     private function makeOrder(Company $company, Customer $customer, User $creator, OrderStatus $status, array $items, ?User $assignedTo = null): Order
