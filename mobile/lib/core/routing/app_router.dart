@@ -1,14 +1,20 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/auth/domain/user.dart';
 import '../../features/auth/presentation/auth_controller.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
+import '../../features/delivery/presentation/delivery_screen.dart';
+import '../../features/delivery/presentation/my_route_screen.dart';
 import '../../features/orders/presentation/create_order_screen.dart';
 import '../../features/orders/presentation/order_detail_screen.dart';
 import '../../features/orders/presentation/orders_list_screen.dart';
 import '../../features/preparation/presentation/preparation_screen.dart';
 import '../../features/review/presentation/review_list_screen.dart';
+import '../../features/routes/presentation/create_route_screen.dart';
+import '../../features/routes/presentation/route_detail_screen.dart';
+import '../../features/routes/presentation/routes_list_screen.dart';
 import 'splash_screen.dart';
 
 /// Se reconstruye cuando cambia el estado de sesión (login/logout), lo
@@ -30,7 +36,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       final loggingIn = state.matchedLocation == '/login';
       if (!isAuthenticated) return loggingIn ? null : '/login';
-      if (loggingIn || onSplash) return '/';
+
+      final isDriver = authState.value?.role == UserRole.motorista;
+
+      // El motorista tiene una experiencia dedicada: solo su ruta y sus
+      // entregas (Documento 3 §5), nunca la bandeja general de pedidos.
+      if ((loggingIn || onSplash) && !isDriver) return '/';
+      if ((loggingIn || onSplash) && isDriver) return '/my-route';
+      if (isDriver && state.matchedLocation == '/') return '/my-route';
+
       return null;
     },
     routes: [
@@ -49,6 +63,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/orders/:id/preparation',
         builder: (context, state) =>
             PreparationScreen(orderId: int.parse(state.pathParameters['id']!)),
+      ),
+      GoRoute(path: '/routes', builder: (context, state) => const RoutesListScreen()),
+      GoRoute(path: '/routes/new', builder: (context, state) => const CreateRouteScreen()),
+      GoRoute(
+        path: '/routes/:id',
+        builder: (context, state) =>
+            RouteDetailScreen(routeId: int.parse(state.pathParameters['id']!)),
+      ),
+      GoRoute(path: '/my-route', builder: (context, state) => const MyRouteScreen()),
+      GoRoute(
+        path: '/delivery/:stopId',
+        builder: (context, state) =>
+            DeliveryScreen(stopId: int.parse(state.pathParameters['stopId']!)),
       ),
     ],
   );

@@ -30,6 +30,12 @@ class OrdersListScreen extends ConsumerWidget {
               tooltip: 'Revisión pendiente',
               onPressed: () => context.push('/review'),
             ),
+          if (user?.canDispatch ?? false)
+            IconButton(
+              icon: const Icon(Icons.alt_route_outlined),
+              tooltip: 'Rutas',
+              onPressed: () => context.push('/routes'),
+            ),
           if (user?.canCreateOrders ?? false)
             IconButton(
               icon: const Icon(Icons.dashboard_outlined),
