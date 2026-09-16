@@ -41,7 +41,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     ref.listen(authControllerProvider, (previous, next) {
       final error = next.error;
       if (error != null) {
-        final message = error is Failure ? error.message : 'No se pudo iniciar sesión.';
+        final message = errorMessageOf(error);
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
           ..showSnackBar(SnackBar(content: Text(message)));

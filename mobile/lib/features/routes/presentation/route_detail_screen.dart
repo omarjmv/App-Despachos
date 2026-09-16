@@ -34,7 +34,7 @@ class RouteDetailScreen extends ConsumerWidget {
   }
 
   void _showError(BuildContext context, Object e) {
-    final message = e is Failure ? e.message : e.toString();
+    final message = errorMessageOf(e);
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 

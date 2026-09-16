@@ -58,7 +58,12 @@ class RouteService
                 ]);
             }
 
-            return $route->load('stops.dispatch.order.customer', 'vehicle', 'driver');
+            return $route->load(
+                'stops.dispatch.order.customer',
+                'stops.dispatch.items.preparationItem.orderItem.product',
+                'vehicle',
+                'driver'
+            );
         });
     }
 
@@ -81,7 +86,7 @@ class RouteService
             }
         });
 
-        return $route->fresh('stops.dispatch.order.customer');
+        return $route->fresh(['stops.dispatch.order.customer', 'stops.dispatch.items.preparationItem.orderItem.product']);
     }
 
     public function start(RouteModel $route): RouteModel
@@ -98,7 +103,7 @@ class RouteService
 
         AuditLog::record('INICIAR_RUTA', $route);
 
-        return $route->fresh('stops.dispatch.order');
+        return $route->fresh(['stops.dispatch.order.customer', 'stops.dispatch.items.preparationItem.orderItem.product']);
     }
 
     public function finish(RouteModel $route): RouteModel
@@ -114,7 +119,7 @@ class RouteService
 
         AuditLog::record('FINALIZAR_RUTA', $route);
 
-        return $route;
+        return $route->fresh(['stops.dispatch.order.customer', 'stops.dispatch.items.preparationItem.orderItem.product', 'stops.delivery']);
     }
 
     private function assertPlanned(RouteModel $route): void

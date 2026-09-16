@@ -40,7 +40,7 @@ class _CreateRouteScreenState extends ConsumerState<CreateRouteScreen> {
       if (!mounted) return;
       context.pushReplacement('/routes/${route.id}');
     } catch (e) {
-      final message = e is Failure ? e.message : e.toString();
+      final message = errorMessageOf(e);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     } finally {
       if (mounted) setState(() => _submitting = false);

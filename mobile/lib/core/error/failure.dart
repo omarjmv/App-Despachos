@@ -1,9 +1,27 @@
+import 'app_exception.dart';
+
 /// Representa un error de negocio o de red ya traducido a algo que la UI
 /// puede mostrar, en vez de propagar excepciones crudas de Dio.
 sealed class Failure {
   const Failure(this.message);
 
   final String message;
+}
+
+/// Único punto para convertir cualquier error atrapado en un `catch` a un
+/// mensaje mostrable. Los repositorios lanzan [AppException] (que envuelve
+/// un [Failure]), así que comparar directamente `e is Failure` nunca es
+/// cierto y termina mostrando "Instance of 'AppException'" en vez del
+/// mensaje real — este helper evita repetir (y repetir mal) ese chequeo
+/// en cada pantalla.
+String errorMessageOf(Object error) {
+  final failure = switch (error) {
+    AppException(:final failure) => failure,
+    Failure f => f,
+    _ => null,
+  };
+
+  return failure?.message ?? error.toString();
 }
 
 class NetworkFailure extends Failure {

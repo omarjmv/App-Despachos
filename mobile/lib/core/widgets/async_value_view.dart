@@ -30,7 +30,7 @@ class AsyncValueView<T> extends StatelessWidget {
               const Icon(Icons.error_outline, size: 48, color: Colors.redAccent),
               const SizedBox(height: 12),
               Text(
-                error is Failure ? error.message : 'Ocurrió un error inesperado.',
+                errorMessageOf(error),
                 textAlign: TextAlign.center,
               ),
               if (onRetry != null) ...[

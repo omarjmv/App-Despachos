@@ -21,7 +21,7 @@ class ReviewController extends Controller
 
         $orders = Order::query()
             ->where('status', OrderStatus::PREPARADO)
-            ->with(['customer', 'latestPreparation.items.orderItem.product'])
+            ->with(['customer', 'items.product', 'latestPreparation.items.orderItem.product'])
             ->latest()
             ->paginate(20);
 

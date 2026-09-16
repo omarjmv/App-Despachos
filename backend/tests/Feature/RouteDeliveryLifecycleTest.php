@@ -74,6 +74,15 @@ class RouteDeliveryLifecycleTest extends TestCase
         $routeId = $route->json('data.id');
         $stopId = $route->json('data.stops.0.id');
 
+        // El supervisor debe ver los productos de cada parada en la respuesta
+        // de creación (bug real: el servicio no cargaba items.product y la
+        // pantalla de detalle de ruta mostraba "0 producto(s)").
+        $this->assertNotEmpty($route->json('data.stops.0.dispatch.items'));
+
+        // La misma información debe verse al consultar el detalle de la ruta.
+        $show = $this->actingAs($supervisor, 'sanctum')->getJson("/api/v1/routes/{$routeId}")->assertOk();
+        $this->assertNotEmpty($show->json('data.stops.0.dispatch.items'));
+
         // 2. El motorista dueño de la ruta la ve en /routes/mine; otro no.
         $this->actingAs($driver, 'sanctum')->getJson('/api/v1/routes/mine')->assertOk();
         $this->actingAs($otherDriver, 'sanctum')->getJson('/api/v1/routes/mine')->assertStatus(404);

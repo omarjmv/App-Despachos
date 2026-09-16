@@ -78,7 +78,7 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
       }
 
       return await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, timeLimit: Duration(seconds: 10)),
       );
     } catch (_) {
       return null;
@@ -146,7 +146,7 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
       context.pop();
     } catch (e) {
       if (!mounted) return;
-      final message = e is Failure ? e.message : e.toString();
+      final message = errorMessageOf(e);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     } finally {
       if (mounted) setState(() => _submitting = false);

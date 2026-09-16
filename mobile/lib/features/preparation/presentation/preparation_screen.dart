@@ -73,7 +73,7 @@ class PreparationScreen extends ConsumerWidget {
       ref.invalidate(preparationProvider(orderId));
     } catch (e) {
       if (!context.mounted) return;
-      final message = e is Failure ? e.message : e.toString();
+      final message = errorMessageOf(e);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     }
   }
@@ -92,7 +92,7 @@ class PreparationScreen extends ConsumerWidget {
       ref.invalidate(preparationProvider(orderId));
     } catch (e) {
       if (!context.mounted) return;
-      final message = e is Failure ? e.message : e.toString();
+      final message = errorMessageOf(e);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     }
   }
@@ -106,7 +106,7 @@ class PreparationScreen extends ConsumerWidget {
       if (context.mounted) context.pop();
     } catch (e) {
       if (!context.mounted) return;
-      final message = e is Failure ? e.message : e.toString();
+      final message = errorMessageOf(e);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     }
   }

@@ -19,7 +19,10 @@ class RouteController extends Controller
         $this->authorize('manage', RouteModel::class);
 
         return RouteResource::collection(
-            RouteModel::query()->with(['vehicle', 'driver', 'stops.dispatch.order.customer'])->latest()->paginate(20)
+            RouteModel::query()
+                ->with(['vehicle', 'driver', 'stops.dispatch.order.customer', 'stops.dispatch.items.preparationItem.orderItem.product'])
+                ->latest()
+                ->paginate(20)
         );
     }
 
@@ -39,7 +42,10 @@ class RouteController extends Controller
     {
         $this->authorize('view', $route);
 
-        return new RouteResource($route->load(['vehicle', 'driver', 'stops.dispatch.order.customer', 'stops.delivery']));
+        return new RouteResource($route->load([
+            'vehicle', 'driver', 'stops.dispatch.order.customer',
+            'stops.dispatch.items.preparationItem.orderItem.product', 'stops.delivery',
+        ]));
     }
 
     public function reorder(ReorderRouteRequest $request, RouteModel $route)
@@ -55,7 +61,9 @@ class RouteController extends Controller
     {
         $this->authorize('manage', RouteModel::class);
 
-        return new RouteResource($this->routes->start($route)->load('stops.dispatch.order'));
+        return new RouteResource($this->routes->start($route)->load([
+            'stops.dispatch.order.customer', 'stops.dispatch.items.preparationItem.orderItem.product',
+        ]));
     }
 
     public function finish(RouteModel $route)
@@ -73,7 +81,7 @@ class RouteController extends Controller
         $route = RouteModel::query()
             ->where('driver_id', $request->user()->id)
             ->whereIn('status', ['PLANIFICADA', 'EN_CURSO'])
-            ->with(['vehicle', 'stops.dispatch.order.customer', 'stops.dispatch.items', 'stops.delivery'])
+            ->with(['vehicle', 'stops.dispatch.order.customer', 'stops.dispatch.items.preparationItem.orderItem.product', 'stops.delivery'])
             ->latest()
             ->first();
 

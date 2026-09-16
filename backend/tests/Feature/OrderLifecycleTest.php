@@ -84,6 +84,13 @@ class OrderLifecycleTest extends TestCase
             ->getJson("/api/v1/orders/{$orderId}/preparation")
             ->assertStatus(403);
 
+        // El revisor debe poder ver los productos del pedido en la bandeja
+        // de pendientes, no solo el conteo en 0 (bug real: el endpoint no
+        // cargaba la relación items).
+        $pending = $this->actingAs($reviewer, 'sanctum')->getJson('/api/v1/reviews/pending')->assertOk();
+        $pendingOrder = collect($pending->json('data'))->firstWhere('id', $orderId);
+        $this->assertNotEmpty($pendingOrder['items']);
+
         // 8. Revisor rechaza primero (debe exigir motivo).
         $this->actingAs($reviewer, 'sanctum')
             ->postJson("/api/v1/orders/{$orderId}/review/reject", [])
