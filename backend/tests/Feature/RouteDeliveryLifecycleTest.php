@@ -170,4 +170,42 @@ class RouteDeliveryLifecycleTest extends TestCase
             ->postJson("/api/v1/route-stops/{$stopId}/start")
             ->assertStatus(403);
     }
+
+    /**
+     * RouteStop no tiene company_id propio, así que un ADMINISTRADOR de
+     * otra empresa no debe poder operar sobre él solo adivinando el id
+     * (regla 21: nunca fuga de información entre empresas).
+     */
+    public function test_an_admin_from_another_company_cannot_operate_on_a_foreign_route_stop(): void
+    {
+        $companyA = $this->makeCompany('empresa-a');
+        $companyB = $this->makeCompany('empresa-b');
+
+        $supervisorB = $this->makeUser($companyB, Role::SUPERVISOR);
+        $preparerB = $this->makeUser($companyB, Role::PREPARADOR);
+        $reviewerB = $this->makeUser($companyB, Role::REVISOR);
+        $driverB = $this->makeUser($companyB, Role::MOTORISTA);
+        $adminA = $this->makeUser($companyA, Role::ADMINISTRADOR);
+
+        $customerB = Customer::query()->create([
+            'company_id' => $companyB->id, 'code' => 'CLI-1', 'name' => 'Cliente B', 'is_active' => true,
+        ]);
+        $productB = Product::query()->create([
+            'company_id' => $companyB->id, 'sku' => 'SKU-B', 'name' => 'Producto B', 'unit' => 'UNIDAD', 'is_active' => true,
+        ]);
+        $vehicleB = Vehicle::query()->create([
+            'company_id' => $companyB->id, 'plate' => 'XYZ-999', 'is_active' => true,
+        ]);
+
+        $dispatch = $this->dispatchedOrder($companyB, $customerB, $productB, $supervisorB, $preparerB, $reviewerB, 10);
+
+        $route = app(\App\Services\RouteService::class)->create($vehicleB->id, $driverB->id, [$dispatch->id], $supervisorB);
+        app(\App\Services\RouteService::class)->start($route);
+
+        $stopId = $route->stops->first()->id;
+
+        $this->actingAs($adminA, 'sanctum')
+            ->postJson("/api/v1/route-stops/{$stopId}/start")
+            ->assertStatus(403);
+    }
 }

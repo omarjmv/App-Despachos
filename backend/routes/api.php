@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\V1\ReportController;
 use App\Http\Controllers\Api\V1\ReviewController;
 use App\Http\Controllers\Api\V1\RoleController;
 use App\Http\Controllers\Api\V1\RouteController;
+use App\Http\Controllers\Api\V1\SyncController;
 use App\Http\Controllers\Api\V1\UserController;
 use App\Http\Controllers\Api\V1\VehicleController;
 use Illuminate\Support\Facades\Route;
@@ -82,5 +83,8 @@ Route::prefix('v1')->group(function () {
         Route::post('route-stops/{stop}/deliveries', [DeliveryController::class, 'store']);
         Route::post('deliveries/{delivery}/evidence', [DeliveryController::class, 'addEvidence']);
         Route::get('evidence/{evidence}', [DeliveryController::class, 'showEvidence'])->name('evidence.show');
+
+        // Fase 3: sincronización offline
+        Route::post('sync/deliveries/batch', [SyncController::class, 'deliveriesBatch']);
     });
 });
