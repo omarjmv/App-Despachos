@@ -107,11 +107,10 @@ class _CreateRouteScreenState extends ConsumerState<CreateRouteScreen> {
             ReorderableListView(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              onReorder: (oldIndex, newIndex) {
+              onReorderItem: (fromIndex, toIndex) {
                 setState(() {
-                  if (newIndex > oldIndex) newIndex--;
-                  final item = _selected.removeAt(oldIndex);
-                  _selected.insert(newIndex, item);
+                  final item = _selected.removeAt(fromIndex);
+                  _selected.insert(toIndex, item);
                 });
               },
               children: [

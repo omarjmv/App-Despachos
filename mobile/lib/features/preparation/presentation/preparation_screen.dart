@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/error/failure.dart';
 import '../../../core/widgets/async_value_view.dart';
+import '../../../core/widgets/barcode_scanner_screen.dart';
 import '../../orders/presentation/orders_providers.dart';
 import '../data/preparation_repository.dart';
 import '../domain/preparation.dart';
@@ -77,6 +78,25 @@ class PreparationScreen extends ConsumerWidget {
     }
   }
 
+  /// Flujo de escáner (sección 8 del brief): identifica el producto por
+  /// código y suma 1 a lo preparado; el servidor rechaza el incremento si
+  /// supera lo solicitado sin autorización explícita.
+  Future<void> _scan(BuildContext context, WidgetRef ref) async {
+    final code = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const BarcodeScannerScreen()),
+    );
+    if (code == null || !context.mounted) return;
+
+    try {
+      await ref.read(preparationRepositoryProvider).scan(orderId, code);
+      ref.invalidate(preparationProvider(orderId));
+    } catch (e) {
+      if (!context.mounted) return;
+      final message = e is Failure ? e.message : e.toString();
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
   Future<void> _finish(BuildContext context, WidgetRef ref) async {
     try {
       await ref.read(preparationRepositoryProvider).finish(orderId);
@@ -96,7 +116,16 @@ class PreparationScreen extends ConsumerWidget {
     final preparationAsync = ref.watch(preparationProvider(orderId));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Preparación')),
+      appBar: AppBar(
+        title: const Text('Preparación'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.qr_code_scanner),
+            tooltip: 'Escanear producto',
+            onPressed: () => _scan(context, ref),
+          ),
+        ],
+      ),
       body: AsyncValueView(
         value: preparationAsync,
         onRetry: () => ref.invalidate(preparationProvider(orderId)),

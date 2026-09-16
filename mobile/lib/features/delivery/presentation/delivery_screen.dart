@@ -13,7 +13,7 @@ import '../../../core/error/failure.dart';
 import '../../../core/widgets/async_value_view.dart';
 import '../../routes/data/routes_repository.dart';
 import '../../routes/domain/route_stop.dart';
-import '../data/delivery_repository.dart';
+import '../data/delivery_coordinator.dart';
 import '../domain/delivery.dart';
 
 class _ItemDraft {
@@ -42,6 +42,7 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
   final _picker = ImagePicker();
 
   List<_ItemDraft>? _drafts;
+  RouteStop? _stop;
   File? _photo;
   bool _submitting = false;
 
@@ -53,6 +54,7 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
   }
 
   void _initDrafts(RouteStop stop) {
+    _stop = stop;
     _drafts ??= stop.dispatch.items.map(_ItemDraft.new).toList();
   }
 
@@ -108,9 +110,11 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
 
     try {
       final position = await _currentPosition();
+      final signatureFile = await _persistSignature();
 
-      final delivery = await ref.read(deliveryRepositoryProvider).submit(
+      final result = await ref.read(deliveryCoordinatorProvider).submit(
             stopId: widget.stopId,
+            customerName: _stop!.dispatch.customer.name,
             clientUuid: const Uuid().v4(),
             items: drafts
                 .map((d) => DeliveryItemPayload(
@@ -123,15 +127,21 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
             notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
             latitude: position?.latitude,
             longitude: position?.longitude,
+            signatureFile: signatureFile,
+            photoFile: _photo,
           );
-
-      await _uploadEvidence(delivery);
 
       ref.invalidate(myRouteProvider);
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Entrega registrada: ${delivery.result}')),
+        SnackBar(
+          content: Text(
+            result.queuedOffline
+                ? 'Sin conexión: la entrega se guardó en el dispositivo y se enviará automáticamente.'
+                : 'Entrega registrada: ${result.delivery!.result}',
+          ),
+        ),
       );
       context.pop();
     } catch (e) {
@@ -143,20 +153,13 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
     }
   }
 
-  Future<void> _uploadEvidence(Delivery delivery) async {
-    final repo = ref.read(deliveryRepositoryProvider);
-    final tempDir = await getTemporaryDirectory();
-
+  Future<File?> _persistSignature() async {
     final signatureBytes = await _signatureController.toPngBytes();
-    if (signatureBytes != null) {
-      final file = File('${tempDir.path}/firma_${delivery.id}.png');
-      await file.writeAsBytes(signatureBytes);
-      await repo.uploadEvidence(deliveryId: delivery.id, type: 'FIRMA', file: file);
-    }
+    if (signatureBytes == null) return null;
 
-    if (_photo != null) {
-      await repo.uploadEvidence(deliveryId: delivery.id, type: 'FOTO', file: _photo!);
-    }
+    final tempDir = await getTemporaryDirectory();
+    final file = File('${tempDir.path}/firma_${DateTime.now().millisecondsSinceEpoch}.png');
+    return file.writeAsBytes(signatureBytes);
   }
 
   @override

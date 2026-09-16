@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../network/api_client.dart';
+import '../storage/local/app_database.dart';
 import '../storage/token_storage.dart';
 
 final secureStorageProvider = Provider((ref) => const FlutterSecureStorage());
@@ -18,4 +19,12 @@ final apiClientProvider = Provider((ref) {
     ref.watch(tokenStorageProvider),
     onUnauthorized: () => ref.read(unauthorizedCallbackProvider)?.call(),
   );
+});
+
+/// Una única instancia por toda la vida de la app: abrir/cerrar el
+/// archivo sqlite repetidamente no tiene sentido para una cola local.
+final appDatabaseProvider = Provider<AppDatabase>((ref) {
+  final db = AppDatabase();
+  ref.onDispose(db.close);
+  return db;
 });
